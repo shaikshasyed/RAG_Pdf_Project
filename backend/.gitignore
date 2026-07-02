@@ -1,0 +1,24 @@
+# Virtual Environment
+venv/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Uploaded PDFs (optional)
+backend/app/uploads/*
+
+# Vector Database (optional)
+backend/app/vector_store/
+
+# OS files
+.DS_Store
+Thumbs.db
