@@ -16,6 +16,9 @@ class VectorStore:
     
     def add_chunks(self, chunks):
 
+        # for chunk in chunks:
+        #     print(chunk["embedding"][:10])  # Print the first 10 elements of the embedding for debugging
+
         self.collection.add(
 
             ids=[ str(chunk["chunk_id"])
@@ -35,7 +38,8 @@ class VectorStore:
             metadatas=[
 
                 {
-                    "page": chunk["page"]
+                    "page": chunk["page"],
+                    "chunk_id": chunk["chunk_id"]
                 }
 
                 for chunk in chunks
@@ -44,8 +48,30 @@ class VectorStore:
         )
 
     
+    def reset_collection(self):
+        try:
+            self.client.delete_collection("pdf_chat")
+        except Exception:
+            pass
+
+        self.collection = self.client.create_collection("pdf_chat")
+        
     ## raw Chroma response
 
+
+    # def search(self, query_embedding,top_k=3):
+
+    #     results = self.collection.query(
+    #         query_embeddings=[query_embedding],
+    #         n_results=top_k
+    #     )
+
+    #     return results
+    
+
+    ## Cleaner Chroma response
+
+    
     def search(self, query_embedding,top_k=3):
 
         results = self.collection.query(
@@ -53,29 +79,17 @@ class VectorStore:
             n_results=top_k
         )
 
-        return results
-    
+        formatted_results = []
 
-    ## Cleaner Chroma response
+        for doc, metadata, distance in zip(
+            results["documents"][0],
+            results["metadatas"][0],
+            results["distances"][0],
+        ):
+            formatted_results.append({
+                "text": doc,
+                "page": metadata["page"],
+                "distance": distance,
+            })
 
-    
-    # def search(self, query_embedding, top_k=3):
-    #     results = self.collection.query(
-    #         query_embeddings=[query_embedding],
-    #         n_results=top_k
-    #     )
-
-    #     formatted_results = []
-
-    #     for doc, metadata, distance in zip(
-    #         results["documents"][0],
-    #         results["metadatas"][0],
-    #         results["distances"][0],
-    #     ):
-    #         formatted_results.append({
-    #             "text": doc,
-    #             "page": metadata["page"],
-    #             "distance": distance,
-    #         })
-
-    #     return formatted_results
+        return formatted_results

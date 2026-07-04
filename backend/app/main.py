@@ -1,15 +1,9 @@
 from fastapi import FastAPI
-from app.rag.pdf_loader import load_pdf
 
-app = FastAPI()
+from app.api.upload import router as upload_router
+from app.api.user_query import router as user_query_router
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to the PDF Reader API"}
+app = FastAPI(title="PDF Chat API")
 
-@app.get("/read-pdf")
-def read_pdf():
-
-    pages = load_pdf("app/uploads/Shaikshavali_Resume.pdf")
-
-    return pages
+app.include_router(upload_router)
+app.include_router(user_query_router)

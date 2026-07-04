@@ -1,6 +1,5 @@
 import re
 
-
 def sentence_chunk(text):
     """
     Split text into sentences.
@@ -8,4 +7,4 @@ def sentence_chunk(text):
 
     sentences = re.split(r'(?<=[.!?])\s+', text)
 
-    return sentences
+    return [sentence.strip() for sentence in sentences if sentence.strip()]

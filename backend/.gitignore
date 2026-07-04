@@ -13,11 +13,13 @@ __pycache__/
 # Logs
 *.log
 
-# Uploaded PDFs (optional)
+# Uploaded PDFs 
 backend/app/uploads/*
 
-# Vector Database (optional)
+# Vector Database 
 backend/app/vector_store/
+backend/chroma_db/*
+
 
 # OS files
 .DS_Store

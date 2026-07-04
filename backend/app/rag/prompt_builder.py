@@ -1,30 +1,23 @@
+def build_prompt(question: str, results: list):
+    context = "\n\n".join(
+        result["text"] for result in results
+    )
 
+    prompt = f"""
+            You are a helpful AI assistant.
 
-def build_prompt(question: str, contexts: list[str]) -> str:
+            Answer the user's question using ONLY the context below.
 
-    context = "\n\n".join(contexts)
+            If the answer is not present in the context, say:
+            "I couldn't find that information in the uploaded PDF."
 
-    return f"""
-        You are a helpful AI assistant.
+            Context:
+            {context}
 
-        Answer ONLY using the provided context.
+            Question:
+            {question}
 
-        If the answer cannot be found in the context,
-        respond with:
+            Answer:
+         """
 
-        "I couldn't find this information in the uploaded document."
-
-        --------------------
-
-        Context:
-
-        {context}
-
-        --------------------
-
-        Question:
-
-        {question}
-
-        Answer:
-    """
+    return prompt
