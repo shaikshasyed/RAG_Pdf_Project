@@ -1,12 +1,8 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
 class ChatRequest(BaseModel):
-    document_id: str
-    question: str
-
-class ChatResponse(BaseModel):
-
-    answer: str
-
-    sources: list
+    query_text: str
+    top_k: int = 3
+    document_id: Optional[str] = None
