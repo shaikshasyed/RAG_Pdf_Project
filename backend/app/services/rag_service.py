@@ -4,27 +4,39 @@ import uuid
 
 from fastapi import HTTPException, UploadFile
 
+from app.rag.conversation_memory import ConversationMemory
+from app.rag.memory_resolver import MemoryResolver
 from app.rag.embedding import EmbeddingService
 from app.rag.generator import Generator
 from app.rag.vector_store import VectorStore
+from app.rag.query_expander import QueryExpander
+from app.rag.multi_query_retriever import MultiQueryRetriever
 
 from app.rag.pdf_loader import load_pdf
-from app.rag.text_cleaner import clean_text
-from app.rag.sentence_chunker import sentence_chunk
+from app.rag.text_splitter import split_text
 from app.rag.prompt_builder import build_prompt
 
+from app.rag.retrieval_service import RetrievalService
+from app.rag.reranker import Reranker
+
 from app.utils.file_hash import generate_file_hash
+from app.config import SIMILARITY_THRESHOLD, RETRIEVE_TOP_K, FINAL_TOP_K
 
 class RAGService:
 
-    def __init__(self):
-
+    def __init__(self): 
+        
+        self.conversation_memory = ConversationMemory()
+        self.memory_resolver = MemoryResolver()
         self.embedding_service = EmbeddingService()
 
         self.vector_store = VectorStore()
-
+        self.query_expander = QueryExpander()
         self.generator = Generator()
+        self.reranker = Reranker()
 
+        self.retrieval_service = RetrievalService(vector_store=self.vector_store)
+        self.multi_query_retriever = MultiQueryRetriever(retrieval_service=self.retrieval_service, embedding_service=self.embedding_service)
 
         self.upload_folder = Path("uploads")
 
@@ -66,31 +78,25 @@ class RAGService:
         total_pages = len(pages)
 
         self.vector_store.add_document( document_id=document_id, filename=file.filename, file_hash=file_hash, total_pages=total_pages)
-
-
-        # Clean and chunk text
-        for page in pages:
-            page["text"] = clean_text(page["text"])
+        
         
         # Create chunks and add to vector store    
         chunks = []
         chunk_id = 1
         for page in pages:
-            sentences = sentence_chunk(page["text"])
+            page_chunks = split_text(page["text"])
 
-            for sentence in sentences:
+            for chunk in page_chunks:
                 chunks.append({
                     "document_id": document_id,
                     "chunk_id": chunk_id,
                     "page": page["page"],
-                    "text": sentence
+                    "text": chunk
                 })
                 chunk_id += 1
 
         # Embed chunks and add to vector store
-        texts = []
-        for chunk in chunks:
-            texts.append(chunk["text"])
+        texts = [chunk["text"] for chunk in chunks]
         
         embeddings = self.embedding_service.embed(texts)
 
@@ -99,7 +105,9 @@ class RAGService:
             chunk["embedding"] = embedding
 
         self.vector_store.add_chunks(chunks)
-
+        
+        # Refresh the retrieval service index
+        self.retrieval_service.refresh_index()
 
 
         return {
@@ -109,30 +117,73 @@ class RAGService:
             "total_chunks": len(chunks)
         }
     
-    async def search_user_query(self, query_text, document_id=None, top_k=3):
-        query_embedding = self.embedding_service.embed([query_text])[0]
+    async def search_user_query(self, query_text, document_id=None):
 
-        results = self.vector_store.search(query_embedding, document_id = document_id, top_k = top_k)
+        recent_history = self.conversation_memory.get_recent_history()
+        resolved_query = self.memory_resolver.resolve(query_text, recent_history)
+       
+        expanded_queries = self.query_expander.expand(resolved_query)
+        expanded_queries = list(dict.fromkeys(expanded_queries))
 
+        unique_results = self.multi_query_retriever.retrieve(expanded_queries, document_id=document_id)
+
+        results = self.reranker.rerank(query_text=resolved_query, results=unique_results, top_k=FINAL_TOP_K)
+
+    
+
+        # No relevant chunks found
+        if not results:
+            return {
+                "answer": "I couldn't find any relevant information in the uploaded documents.",
+                "sources": []
+            }
+
+        # Add filename
         for result in results:
             document = self.vector_store.get_document(result["document_id"])
             result["filename"] = document["filename"]
 
-        prompt = build_prompt(query_text, results)
-
-        response = self.generator.generate(prompt)
-
-        return  {
-                "answer": response,
-                "sources": [
-                    {
-                        "filename": result["filename"],
-                        "page": result["page"]
-                    }
-                    for result in results
-                ]
-            }
+        # print("Filtered results:", results)  # Debugging line to print filtered results
     
+
+        grouped_sources = {}
+
+        for result in results:
+            filename = result["filename"]
+            if filename not in grouped_sources:
+                grouped_sources[filename] = []
+            grouped_sources[filename].append(result["page"])
+
+        sources = []
+        for filename, pages in grouped_sources.items():
+            sources.append({
+                "filename": filename,
+                "pages": sorted(set(pages))
+            })
+        
+        
+        prompt = build_prompt(resolved_query, results)
+
+        try:
+            response = self.generator.generate(prompt)
+        except Exception:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate response."
+            )
+
+        self.conversation_memory.add_user_message(query_text)
+        self.conversation_memory.add_assistant_message(response)
+
+
+
+        return {
+            "answer": response,
+             "sources": sources
+            }
+        
+       
+        
 rag_service = RAGService()
         
     

@@ -12,7 +12,6 @@ async def user_query(request: ChatRequest):
 
     results = await rag_service.search_user_query(
         query_text=request.query_text,
-        top_k=request.top_k,
         document_id=request.document_id
     )
 
