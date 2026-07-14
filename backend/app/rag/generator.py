@@ -14,3 +14,14 @@ class Generator:
         )
 
         return response.text
+    
+    def generate_stream(self, prompt):
+
+        stream = client.models.generate_content_stream(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+
+        for chunk in stream:
+            if chunk.text:
+                yield chunk.text

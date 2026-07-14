@@ -1,0 +1,8 @@
+import json
+
+
+def create_sse_event(event: str, data: dict) -> str:
+    return (
+        f"event: {event}\n"
+        f"data: {json.dumps(data)}\n\n"
+    )
