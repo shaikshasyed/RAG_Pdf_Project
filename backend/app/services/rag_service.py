@@ -18,6 +18,7 @@ from app.rag.prompt_builder import build_prompt
 
 from app.rag.retrieval_service import RetrievalService
 from app.rag.reranker import Reranker
+from app.rag.context_compressor import ContextCompressor
 
 from app.utils.file_hash import generate_file_hash
 from app.utils.sse import create_sse_event
@@ -36,6 +37,7 @@ class RAGService:
         self.query_expander = QueryExpander()
         self.generator = Generator()
         self.reranker = Reranker()
+        self.context_compressor = ContextCompressor()
 
         self.retrieval_service = RetrievalService(vector_store=self.vector_store)
         self.multi_query_retriever = MultiQueryRetriever(retrieval_service=self.retrieval_service, embedding_service=self.embedding_service)
@@ -130,6 +132,8 @@ class RAGService:
         unique_results = self.multi_query_retriever.retrieve(expanded_queries, document_id=document_id)
 
         results = self.reranker.rerank(query_text=resolved_query, results=unique_results, top_k=FINAL_TOP_K)
+
+        # compressed_results = self.context_compressor()
 
     
 

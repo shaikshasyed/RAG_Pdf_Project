@@ -75,21 +75,25 @@ class VectorStore:
                 "document_id": document_id
             }
 
-        results = self.chunks.query(**query_params)
+        results = self.chunks.query(**query_params,     include=["documents", "metadatas", "distances", "embeddings"]
+)
 
 
         formatted_results = []
 
-        for doc, metadata, distance in zip(
+        for doc, metadata,distance, embedding  in zip(
             results["documents"][0],
             results["metadatas"][0],
             results["distances"][0],
+            results["embeddings"][0],
+
         ):
             formatted_results.append({
                 "text": doc,
                 "document_id": metadata["document_id"],
                 "page": metadata["page"],
                 "chunk_id": metadata["chunk_id"],
+                "embedding":embedding,
                 "distance": distance,
                 "retrieval_type": "vector"
             })
@@ -126,22 +130,25 @@ class VectorStore:
     def get_all_chunks(self):
 
         results = self.chunks.get(
-            include=["documents", "metadatas"]
+            include=["documents", "metadatas","embeddings"]
         )
 
         chunks = []
 
-        for doc, metadata in zip(
+        for doc, metadata,embedding in zip(
             results["documents"],
-            results["metadatas"]
+            results["metadatas"],
+            results["embeddings"]
         ):
             chunks.append({
                 "text": doc,
                 "document_id": metadata["document_id"],
                 "page": metadata["page"],
-                "chunk_id": metadata["chunk_id"]
+                "chunk_id": metadata["chunk_id"], 
+                "embedding":embedding,
             })
         return chunks
+    
 
 
     
